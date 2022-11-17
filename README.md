@@ -20,7 +20,7 @@ cd stylegan2-ada-pytorch; python train.py \
 --augpipe=bg \
 --initstrength=0 \
 --gamma=50 \
---mirror=$mirror_x \
+--mirror=True \
 --mirrory=False \
 --nkimg=$train_count
 ```
