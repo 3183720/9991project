@@ -23,7 +23,9 @@ cd stylegan2-ada-pytorch; python train.py \
 --nkimg=$train_count
 ```
 ### export model weights 
+```
 cd stylegan2-ada-pytorch; python export_weights1.py /path/to/results/network-snapshot-XXX.pkl /path/to/styleGAN/network-snapshot-XXX.pt
+```
 
 ### PSP
 #### Training the pSp Encoder
@@ -51,15 +53,18 @@ cd pixel2style2pixel-modified; python scripts/train.py \
 
 ### AGE 
 #### get class embedding
+```
 python tools/get_class_embedding.py \
 --class_embedding_path=/path/to/save/classs/embeddings \
 --psp_checkpoint_path=/path/to/pretrained/pSp/checkpoints \
 --train_data_path=/path/to/training/data \
 --test_batch_size=4 \
 --test_workers=4
+```
 
 #### Training AGE
 modified the dataset path in AGE-modified/configs/path_config.py
+```
 cd AGE-modified;python -m torch.distributed.launch \
 --nproc_per_node=1 \
 tools/train.py \
@@ -80,3 +85,4 @@ tools/train.py \
 --output_size=512 \
 --class_embedding_path=/content/classs/embeddings/class_embeddings.pt \
 --psp_checkpoint_path=/path/to/pretrained/pSp/checkpoints/iteration_300000.pt 
+```
