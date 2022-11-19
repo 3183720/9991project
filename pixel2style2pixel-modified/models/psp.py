@@ -27,7 +27,7 @@ class pSp(nn.Module):
         # Define architecture
         self.encoder = self.set_encoder()
         self.decoder = Generator(
-            512, 512, 8, channel_multiplier=2, c_dim=self.opts.c_dim
+            self.opts.output_size, 512, 8, channel_multiplier=2, c_dim=self.opts.c_dim
         )
 
         self.face_pool = torch.nn.AdaptiveAvgPool2d((256, 256))
