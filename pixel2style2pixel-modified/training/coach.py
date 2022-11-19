@@ -316,12 +316,13 @@ class Coach:
             loss_w_norm = self.w_norm_loss(latent, self.net.latent_avg)
             loss_dict["loss_w_norm"] = float(loss_w_norm)
             loss += loss_w_norm * self.opts.w_norm_lambda
-        loss_dict["loss"] = float(loss)
+        
         if self.opts.moco_lambda > 0:
             loss_moco, sim_improvement, id_logs = self.moco_loss(y_hat, y, x)
             loss_dict['loss_moco'] = float(loss_moco)
             loss_dict['id_improve'] = float(sim_improvement)
             loss += loss_moco * self.opts.moco_lambda
+	loss_dict["loss"] = float(loss)
         return loss, loss_dict, id_logs
 
     def log_metrics(self, metrics_dict, prefix):
