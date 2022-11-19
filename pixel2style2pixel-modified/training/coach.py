@@ -94,7 +94,7 @@ class Coach:
                 x, y = x.to(self.device).float(), y.to(self.device).float()
 
                 y_hat, latent = self.net.forward(
-                    x, labels=None, return_latents=True
+                    x, labels=labels, return_latents=True
                 )
                 loss, loss_dict, id_logs = self.calc_loss(
                     x, y, y_hat, latent, target_latent
