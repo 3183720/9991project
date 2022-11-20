@@ -66,7 +66,7 @@ class ImagesDataset(Dataset):
         if self.path_to_label is not None:
             if not self.unseen_label_in_test:
                 label = self.path_to_label[from_path]
-            elif from_path is not in self.path_to_label:
+            elif from_path not in self.path_to_label:
                 label = 0  # assign category 0 to unseen label
             else:
                 label = 0
