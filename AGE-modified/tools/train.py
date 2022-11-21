@@ -36,6 +36,7 @@ import torch.multiprocessing as mp
 
 def train():
 	opts = TrainOptions().parse()
+	opts.label_path = 1
 	dist.init_process_group(backend="nccl", init_method="env://")
 	local_rank = dist.get_rank()
 	torch.cuda.set_device(local_rank)
@@ -96,18 +97,19 @@ def train():
 				transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])])
 		}
 
-
-	
 	train_dataset = ImagesDataset(source_root=dataset_args['train_source_root'],
 									target_root=dataset_args['train_target_root'],
                                     opts=opts,
 									source_transform=transforms_dict['transform_source'],
-									target_transform=transforms_dict['transform_gt_train'])
+									target_transform=transforms_dict['transform_gt_train'],
+                  path_to_label=opts.label_path
+                  )
 	valid_dataset = ImagesDataset(source_root=dataset_args['valid_source_root'],
 									target_root=dataset_args['valid_target_root'],
                                     opts=opts,
 									source_transform=transforms_dict['transform_source'],
-									target_transform=transforms_dict['transform_valid'])
+									target_transform=transforms_dict['transform_valid'],
+                  path_to_label=opts.label_path )
 
 	if local_rank==0:
 		print(f"Number of training samples: {len(train_dataset)}")
@@ -143,9 +145,13 @@ def train():
 	while global_step < opts.max_steps:
 		for batch_idx, batch in enumerate(train_dataloader):
 			optimizer.zero_grad()
-			x, y, av_codes = batch
+			if opts.label_path is not None:
+				x, y, av_codes,labels = batch
+				labels = labels.to(device)
+			else:
+				x, y, av_codes = batch
 			x, y, av_codes = x.to(device).float(), y.to(device).float(), av_codes.to(device).float()
-			outputs = net.forward(x, av_codes, return_latents=True)
+			outputs = net.forward(x, av_codes, labels= labels, return_latents=True)
 			loss, loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
 			loss.backward()
 			optimizer.step()
@@ -188,7 +194,11 @@ def validate(opts, net, orthogonal, sparse, lpips, valid_dataloader, device, glo
 	net.eval()
 	agg_loss_dict = []
 	for batch_idx, batch in enumerate(valid_dataloader):
-		x, y, av_codes = batch
+		if opts.label_path is not None:
+				x, y, av_codes,labels = batch
+				labels = labels.to(device)
+		else:
+				x, y, av_codes = batch
 		with torch.no_grad():
 			x, y, av_codes = x.to(device).float(), y.to(device).float(), av_codes.to(device).float()
 			outputs = net.forward(x, av_codes, return_latents=True)
