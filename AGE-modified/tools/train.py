@@ -36,7 +36,7 @@ import torch.multiprocessing as mp
 
 def train():
 	opts = TrainOptions().parse()
-	opts.label_path = 1
+
 	dist.init_process_group(backend="nccl", init_method="env://")
 	local_rank = dist.get_rank()
 	torch.cuda.set_device(local_rank)

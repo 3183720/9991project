@@ -74,8 +74,7 @@ class AGE(nn.Module):
 	def __init__(self, opts):
 		super(AGE, self).__init__()
 		self.set_opts(opts)
-		self.opts.output_size = 512
-		self.opts.c_dim = 26
+
 		# compute number of style inputs based on the output resolution
 		self.opts.n_styles = int(math.log(self.opts.output_size, 2)) * 2 - 2
 		# Define architecture
