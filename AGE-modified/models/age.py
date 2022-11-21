@@ -74,12 +74,16 @@ class AGE(nn.Module):
 	def __init__(self, opts):
 		super(AGE, self).__init__()
 		self.set_opts(opts)
+		self.opts.output_size = 512
+		self.opts.c_dim = 26
 		# compute number of style inputs based on the output resolution
 		self.opts.n_styles = int(math.log(self.opts.output_size, 2)) * 2 - 2
 		# Define architecture
 		self.encoder = self.set_encoder()
 		self.ax = Ax(self.opts.A_length)
-		self.decoder = Generator(self.opts.output_size, 512, 8)
+		print('self.opts.c_dim',self.opts.c_dim, self.opts.output_size)
+
+		self.decoder = Generator(self.opts.output_size, 512, 8, c_dim=self.opts.c_dim)
 		self.face_pool = torch.nn.AdaptiveAvgPool2d((256, 256))
 		# Load weights if needed
 		self.load_weights()
@@ -134,7 +138,7 @@ class AGE(nn.Module):
 			self.decoder.load_state_dict(get_keys(ckpt, 'decoder'), strict=True)
 			self.__load_latent_avg(ckpt)
 
-	def forward(self, x, av_codes, resize=True, latent_mask=None, input_code=False, randomize_noise=True,
+	def forward(self, x, av_codes, labels= None, resize=True, latent_mask=None, input_code=False, randomize_noise=True,
 	            inject_latent=None, return_latents=False, alpha=None):
 		if input_code:
 			codes = x
@@ -165,6 +169,7 @@ class AGE(nn.Module):
 		#image generation
 		input_is_latent = not input_code
 		images, result_latent = self.decoder([codes],
+		                                     labels,  
 		                                     input_is_latent=input_is_latent,
 		                                     randomize_noise=randomize_noise,
 		                                     return_latents=return_latents)

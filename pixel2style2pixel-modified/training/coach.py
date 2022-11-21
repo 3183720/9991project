@@ -42,7 +42,7 @@ class Coach:
                 start_from_latent_avg=self.opts.start_from_latent_avg
             )
         if self.opts.moco_lambda > 0:
-			      self.moco_loss = moco_loss.MocoLoss().to(self.device).eval()
+                  self.moco_loss = moco_loss.MocoLoss().to(self.device).eval()
         self.mse_loss = nn.MSELoss().to(self.device).eval()
 
         # Initialize optimizer
@@ -149,7 +149,7 @@ class Coach:
         for batch_idx, batch in enumerate(self.test_dataloader):
             target_latent = None
             labels = None
-            if self.labels_path is not None:
+            if self.use_label:
                 x, y, labels = batch
                 labels = labels.to(self.device)
             elif self.opts.latent_lambda > 0:
@@ -327,7 +327,7 @@ class Coach:
             loss_dict['loss_moco'] = float(loss_moco)
             loss_dict['id_improve'] = float(sim_improvement)
             loss += loss_moco * self.opts.moco_lambda
-	loss_dict["loss"] = float(loss)
+        loss_dict["loss"] = float(loss)
         return loss, loss_dict, id_logs
 
     def log_metrics(self, metrics_dict, prefix):
