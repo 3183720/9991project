@@ -327,7 +327,7 @@ class Coach:
             loss_dict['loss_moco'] = float(loss_moco)
             loss_dict['id_improve'] = float(sim_improvement)
             loss += loss_moco * self.opts.moco_lambda
-	loss_dict["loss"] = float(loss)
+        loss_dict["loss"] = float(loss)
         return loss, loss_dict, id_logs
 
     def log_metrics(self, metrics_dict, prefix):

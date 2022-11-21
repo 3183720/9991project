@@ -14,6 +14,7 @@ class ImagesDataset(Dataset):
 		self.target_transform = target_transform
 		self.average_codes = torch.load(opts.class_embedding_path, map_location=torch.device("cpu"))
 		self.opts = opts
+		self.unseen_label_in_test= opts.unseen_label_in_test
 		self.path_to_label = path_to_label
 		self.source_root = source_root 
 	def __len__(self):

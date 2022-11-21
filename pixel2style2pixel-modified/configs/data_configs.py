@@ -16,7 +16,8 @@ DATASETS = {
         "train_target_root": dataset_paths["ffhq_512_cond"],
         "test_source_root": dataset_paths["ffhq_512_cond_val"],
         "test_target_root": dataset_paths["ffhq_512_cond_val"],
-        "labels": dataset_paths["ffhq_512_labels"],
+        "train_labels": dataset_paths["ffhq_512_train_labels"],
+        "test_labels": dataset_paths["ffhq_512_test_labels"]
     },
     "paired_gens": {
         "transforms": transforms_config.PairedEncodeTransforms,

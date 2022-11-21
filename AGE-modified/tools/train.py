@@ -97,6 +97,8 @@ def train():
 				transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])])
 		}
 
+	train_labels_path = None
+	test_labels_path = None
 	if opts.use_label:
 		train_labels_path = dataset_args["train_labels"]
 		if not opts.unseen_label_in_test:
