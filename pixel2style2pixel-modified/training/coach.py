@@ -148,8 +148,8 @@ class Coach:
         agg_loss_dict = []
         for batch_idx, batch in enumerate(self.test_dataloader):
             target_latent = None
-            labels = None
-            if self.labels_path is not None:
+            #labels = None
+            if self.use_label is not None:
                 x, y, labels = batch
                 labels = labels.to(self.device)
             elif self.opts.latent_lambda > 0:

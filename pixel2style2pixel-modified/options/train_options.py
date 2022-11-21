@@ -43,6 +43,7 @@ class TrainOptions:
         self.parser.add_argument('--board_interval', default=50, type=int, help='Interval for logging metrics to tensorboard')
         self.parser.add_argument('--val_interval', default=1000, type=int, help='Validation interval')
         self.parser.add_argument('--save_interval', default=None, type=int, help='Model checkpoint interval')
+        self.parser.add_argument('--c_dim', default=0, type=int, help='number of category ')
         self.parser.add_argument('--use_label', action="store_true", help='label_path')
         self.parser.add_argument('--unseen_label_in_test', action="store_true", help='label in test set unseen')
         # arguments for weights & biases support

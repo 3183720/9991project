@@ -111,14 +111,14 @@ def train():
                                     opts=opts,
 									source_transform=transforms_dict['transform_source'],
 									target_transform=transforms_dict['transform_gt_train'],
-                  path_to_label=train_labels_path
+                  labels_path=train_labels_path
                   )
 	valid_dataset = ImagesDataset(source_root=dataset_args['valid_source_root'],
 									target_root=dataset_args['valid_target_root'],
                                     opts=opts,
 									source_transform=transforms_dict['transform_source'],
 									target_transform=transforms_dict['transform_valid'],
-                  path_to_label=test_labels_path )
+                  labels_path=test_labels_path )
 
 	if local_rank==0:
 		print(f"Number of training samples: {len(train_dataset)}")
@@ -203,7 +203,7 @@ def validate(opts, net, orthogonal, sparse, lpips, valid_dataloader, device, glo
 	net.eval()
 	agg_loss_dict = []
 	for batch_idx, batch in enumerate(valid_dataloader):
-		if opts.label_path is not None:
+		if opts.use_label is not None:
 				x, y, av_codes,labels = batch
 				labels = labels.to(device)
 		else:

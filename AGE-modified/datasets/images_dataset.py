@@ -3,11 +3,11 @@ import os
 from torch.utils.data import Dataset
 from PIL import Image
 from utils import data_utils
-
+import json 
 
 class ImagesDataset(Dataset):
 
-	def __init__(self, source_root, target_root, opts, target_transform=None, source_transform=None,path_to_label=None):
+	def __init__(self, source_root, target_root, opts, target_transform=None, source_transform=None,labels_path=None):
 		self.source_paths = sorted(data_utils.make_dataset(source_root))
 		self.target_paths = sorted(data_utils.make_dataset(target_root))
 		self.source_transform = source_transform
@@ -15,8 +15,14 @@ class ImagesDataset(Dataset):
 		self.average_codes = torch.load(opts.class_embedding_path, map_location=torch.device("cpu"))
 		self.opts = opts
 		self.unseen_label_in_test= opts.unseen_label_in_test
-		self.path_to_label = path_to_label
+
 		self.source_root = source_root 
+
+		self.path_to_label = None
+		if labels_path is not None:
+			with open(labels_path) as f:
+				labels = json.load(f)["labels"]
+			self.path_to_label = {path: label for path, label in labels}
 	def __len__(self):
 		return len(self.source_paths)
 
