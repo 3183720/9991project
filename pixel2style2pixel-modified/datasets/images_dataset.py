@@ -1,5 +1,5 @@
 import json
-
+import os
 import numpy as np
 import torch
 import torchvision.transforms as transforms
@@ -18,6 +18,7 @@ class ImagesDataset(Dataset):
         labels_path=None,
         target_transform=None,
         source_transform=None,
+        unseen_label_in_test=False
     ):
 
         self.target_paths = sorted(data_utils.make_dataset(target_root))
@@ -36,7 +37,10 @@ class ImagesDataset(Dataset):
 
         self.source_transform = source_transform
         self.target_transform = target_transform
+        self.unseen_label_in_test=unseen_label_in_test
         self.opts = opts
+        self.source_root = source_root
+        self.target_root = target_root
 
     def __len__(self):
         return len(self.source_paths)
@@ -62,12 +66,19 @@ class ImagesDataset(Dataset):
         latent = None
 
         if self.path_to_label is not None:
-            #label_list = self.path_to_label[from_path]
+            if not self.unseen_label_in_test:
+                arch_fname = os.path.relpath(from_path,self.source_root)
+                label = self.path_to_label[arch_fname]
+            elif from_path not in self.path_to_label:
+                label = 0  # assign category 0 to unseen label
+            else:
+                label = 0
             #print(from_path)
-            label = from_path.split('/')[3]
-            label= label.split('_')[0]
+            # label = from_path.split('/')[3]
+            # label= label.split('_')[0]
             #label = label[:, label_list]
             return from_im, to_im, int(label)
+
 
         if self.latent_paths is not None:
             latent_path = self.latent_paths[index]

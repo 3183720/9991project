@@ -731,8 +731,9 @@ class Discriminator(nn.Module):
             1024: 16 * channel_multiplier,
         }
         self.c_dim = c_dim
+        self.pixel_norm = PixelNorm()
         if c_dim > 0:
-            self.pixel_norm = PixelNorm()
+            
             self.label_embed = EqualLinear(
                 c_dim, channels[4]
             )  # TODO: pass n. of labels

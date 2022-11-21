@@ -26,6 +26,10 @@ class TestOptions:
 		self.parser.add_argument('--alpha', default=1, type=float, help='Editing intensity alpha')
 		self.parser.add_argument('--beta', default=0.000, type=float, help='Direction selection threshold in A')
 		self.parser.add_argument('--resize_outputs', action='store_true', help='Whether to resize outputs to 256x256 or keep at 1024x1024')
+		self.parser.add_argument('--c_dim', default=0, type=int, help='number of category ')
+		self.parser.add_argument('--use_label', action="store_true", help='label_path')
+		self.parser.add_argument('--unseen_label_in_test', action="store_true", help='label in test set unseen')
+        
 	def parse(self):
 		opts = self.parser.parse_args()
 		return opts
