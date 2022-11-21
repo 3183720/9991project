@@ -97,19 +97,26 @@ def train():
 				transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])])
 		}
 
+	if opts.use_label:
+		train_labels_path = dataset_args["train_labels"]
+		if not opts.unseen_label_in_test:
+			test_labels_path = dataset_args["test_labels"]
+		else:
+			test_labels_path = None
+                
 	train_dataset = ImagesDataset(source_root=dataset_args['train_source_root'],
 									target_root=dataset_args['train_target_root'],
                                     opts=opts,
 									source_transform=transforms_dict['transform_source'],
 									target_transform=transforms_dict['transform_gt_train'],
-                  path_to_label=opts.label_path
+                  path_to_label=train_labels_path
                   )
 	valid_dataset = ImagesDataset(source_root=dataset_args['valid_source_root'],
 									target_root=dataset_args['valid_target_root'],
                                     opts=opts,
 									source_transform=transforms_dict['transform_source'],
 									target_transform=transforms_dict['transform_valid'],
-                  path_to_label=opts.label_path )
+                  path_to_label=test_labels_path )
 
 	if local_rank==0:
 		print(f"Number of training samples: {len(train_dataset)}")
@@ -145,7 +152,7 @@ def train():
 	while global_step < opts.max_steps:
 		for batch_idx, batch in enumerate(train_dataloader):
 			optimizer.zero_grad()
-			if opts.label_path is not None:
+			if opts.use_label:
 				x, y, av_codes,labels = batch
 				labels = labels.to(device)
 			else:

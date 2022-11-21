@@ -1,4 +1,5 @@
 import torch
+import os
 from torch.utils.data import Dataset
 from PIL import Image
 from utils import data_utils
@@ -14,7 +15,7 @@ class ImagesDataset(Dataset):
 		self.average_codes = torch.load(opts.class_embedding_path, map_location=torch.device("cpu"))
 		self.opts = opts
 		self.path_to_label = path_to_label
-
+		self.source_root = source_root 
 	def __len__(self):
 		return len(self.source_paths)
 
@@ -33,9 +34,13 @@ class ImagesDataset(Dataset):
 		else:
 			from_im = to_im
 		if self.path_to_label is not None:
-    #label_list = self.path_to_label[from_path]
-			
-			label = from_path.split('/')[5]
-			label= label.split('_')[0]
+			if not self.unseen_label_in_test:
+				arch_fname = os.path.relpath(from_path,self.source_root)
+				label = self.path_to_label[arch_fname]
+			elif arch_fname not in self.path_to_label:
+				label = 0  # assign category 0 to unseen label
+			else:
+				label = 0
     #label = label[:, label_list]
-		return from_im, to_im, self.average_codes[cate] , int(label)
+			return from_im, to_im, self.average_codes[cate] , int(label)
+		return from_im, to_im, self.average_codes[cate]
