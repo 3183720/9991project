@@ -32,6 +32,7 @@ from criteria import orthogonal_loss, sparse_loss
 from criteria.lpips.lpips import LPIPS
 from optimizer.ranger import Ranger
 from utils import common, train_utils
+from models.restyle_psp import pSp as restyle_psp
 import torch.multiprocessing as mp
 
 def train():
@@ -66,6 +67,11 @@ def train():
 
 	# Initialize network
 	net = AGE(opts).to(device)
+
+	if opts.restyle:
+		psp_restyle = restyle_psp(  opts )
+
+
 	params = list(net.ax.parameters())
 	if opts.optim_name == 'adam':
 		optimizer = torch.optim.Adam(params, lr=opts.learning_rate)
@@ -160,7 +166,19 @@ def train():
 			else:
 				x, y, av_codes = batch
 			x, y, av_codes = x.to(device).float(), y.to(device).float(), av_codes.to(device).float()
-			outputs = net.forward(x, av_codes, labels= labels, return_latents=True)
+      
+			if opts.restyle:
+				avg_image = psp_restyle( psp_restyle.latent_avg.unsqueeze(0),
+																input_code=True,
+																randomize_noise=False,
+																return_latents=False,
+																average_code=True)[0] 
+				avg_image = avg_image.to(device).float().detach()
+				avg_image_for_batch = avg_image.unsqueeze(0).repeat(x.shape[0], 1, 1, 1)
+				x_input = torch.cat([x, avg_image_for_batch], dim=1)
+			else:
+				x_input = x
+			outputs = net.forward(x_input , av_codes, labels= labels, return_latents=True)
 			loss, loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
 			loss.backward()
 			optimizer.step()

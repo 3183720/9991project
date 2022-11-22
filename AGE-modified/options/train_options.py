@@ -40,7 +40,7 @@ class TrainOptions:
 		self.parser.add_argument('--c_dim', default=0, type=int, help='number of category ')
 		self.parser.add_argument('--use_label', action="store_true", help='label_path')
 		self.parser.add_argument('--unseen_label_in_test', action="store_true", help='label in test set unseen')
-        
+		self.parser.add_argument('--restyle', action="store_true", help='use restyle psp')    
 		self.parser.add_argument('--max_steps', default=500000, type=int, help='Maximum number of training steps')
 		self.parser.add_argument('--image_interval', default=100, type=int, help='Interval for logging train images during training')
 		self.parser.add_argument('--board_interval', default=50, type=int, help='Interval for logging metrics to tensorboard')
