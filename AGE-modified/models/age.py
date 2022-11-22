@@ -11,8 +11,9 @@ import torch.distributed as dist
 import torch.nn.functional as F
 from models.encoders import psp_encoders
 from models.stylegan2.model import Generator
-
+from models.stylegan2.model_label import Generator as Generator_label
 from utils.model_utils import RESNET_MAPPING
+from models.restyle_psp import pSp as restyle_psp
 
 
 class EqualLinear(nn.Module):
@@ -40,7 +41,6 @@ class EqualLinear(nn.Module):
         out = self.nonlinearity(out)
         out = self.fc5(out)
         return out
-
 
 
 class Ax(nn.Module):
@@ -81,11 +81,29 @@ class AGE(nn.Module):
 		self.encoder = self.set_encoder()
 		self.ax = Ax(self.opts.A_length)
 		print('self.opts.c_dim',self.opts.c_dim, self.opts.output_size)
-
-		self.decoder = Generator(self.opts.output_size, 512, 8, c_dim=self.opts.c_dim)
+		if opts.use_label:
+			self.decoder = Generator_label(self.opts.output_size, 512, 8, c_dim=self.opts.c_dim)
+		else:
+			self.decoder = Generator(self.opts.output_size, 512, 8 )
 		self.face_pool = torch.nn.AdaptiveAvgPool2d((256, 256))
 		# Load weights if needed
 		self.load_weights()
+		self.restyle = opts.restyle
+		self.psp_restyle= None
+		if opts.restyle:
+			self.psp_restyle= restyle_psp(opts)
+
+
+	def get_restyle_code(self, x):
+		avg_image = self.psp_restyle( self.psp_restyle.latent_avg.unsqueeze(0),
+														input_code=True,
+														randomize_noise=False,
+														return_latents=False,
+														average_code=True)[0] 
+		avg_image = avg_image.to(self.opts.device).float().detach()
+		avg_image_for_batch = avg_image.unsqueeze(0).repeat(x.shape[0], 1, 1, 1)
+		x_input = torch.cat([x, avg_image_for_batch], dim=1)
+		return x_input
 
 	def set_encoder(self):
 		if self.opts.encoder_type == 'GradualStyleEncoder':
@@ -142,6 +160,8 @@ class AGE(nn.Module):
 		if input_code:
 			codes = x
 		else:
+			if self.restyle:
+				x = self.get_restyle_code( x )
 			ocodes = self.encoder(x)
 			odw = ocodes[:, :6] - av_codes[:, :6]
 			dw, A, x = self.ax(odw)
@@ -167,12 +187,17 @@ class AGE(nn.Module):
 
 		#image generation
 		input_is_latent = not input_code
-		images, result_latent = self.decoder([codes],
-		                                     labels,  
-		                                     input_is_latent=input_is_latent,
-		                                     randomize_noise=randomize_noise,
-		                                     return_latents=return_latents)
-
+		if labels:
+			images, result_latent = self.decoder([codes],
+																	labels=labels,  
+																	input_is_latent=input_is_latent,
+																	randomize_noise=randomize_noise,
+																	return_latents=return_latents)
+		else:
+			images, result_latent = self.decoder([codes],
+																	input_is_latent=input_is_latent,
+																	randomize_noise=randomize_noise,
+																	return_latents=return_latents)
 		if resize:
 			images = self.face_pool(images)
 
@@ -202,7 +227,12 @@ class AGE(nn.Module):
 		return {'odw':odw, 'dw':dw, 'A':A, 'x':x, 'codes':codes, 'ocodes':ocodes}
 
 	def get_test_code(self, x, resize=True, latent_mask=None, return_latents=False):
-		ocodes = self.encoder(x)
+		if self.restyle:
+			x_input = self.get_restyle_code( x )
+		else:
+			x_input = x
+
+		ocodes = self.encoder(x_input)
 		odw = ocodes[:, :6]
 		dw, A, x = self.ax(odw)
 		return { 'A':A,  'ocodes':ocodes}

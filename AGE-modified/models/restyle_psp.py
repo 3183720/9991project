@@ -6,7 +6,7 @@ import torch
 from torch import nn
 
 from models.stylegan2.model import Generator
-from configs.paths_config import model_paths
+# from configs.paths_config import model_paths
 from models.encoders import fpn_encoders, restyle_psp_encoders
 from utils.model_utils import RESNET_MAPPING
 
@@ -38,19 +38,12 @@ class pSp(nn.Module):
         return encoder
 
     def load_weights(self):
-        if self.opts.checkpoint_path is not None:
-            print(f'Loading ReStyle pSp from checkpoint: {self.opts.checkpoint_path}')
-            ckpt = torch.load(self.opts.checkpoint_path, map_location='cpu')
-            self.encoder.load_state_dict(self.__get_keys(ckpt, 'encoder'), strict=False)
-            self.decoder.load_state_dict(self.__get_keys(ckpt, 'decoder'), strict=True)
-            self.__load_latent_avg(ckpt)
-        else:
-            encoder_ckpt = self.__get_encoder_checkpoint()
-            self.encoder.load_state_dict(encoder_ckpt, strict=False)
-            print(f'Loading decoder weights from pretrained path: {self.opts.stylegan_weights}')
-            ckpt = torch.load(self.opts.stylegan_weights)
-            self.decoder.load_state_dict(ckpt['g_ema'], strict=True)
-            self.__load_latent_avg(ckpt, repeat=self.n_styles)
+
+        print(f'Loading ReStyle pSp from checkpoint: {self.opts.psp_checkpoint_path}')
+        ckpt = torch.load(self.opts.psp_checkpoint_path, map_location='cpu')
+        self.encoder.load_state_dict(self.__get_keys(ckpt, 'encoder'), strict=False)
+        self.decoder.load_state_dict(self.__get_keys(ckpt, 'decoder'), strict=True)
+        self.__load_latent_avg(ckpt)
 
     def forward(self, x, latent=None, resize=True, latent_mask=None, input_code=False, randomize_noise=True,
                 inject_latent=None, return_latents=False, alpha=None, average_code=False, input_is_full=False):
