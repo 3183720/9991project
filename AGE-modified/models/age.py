@@ -156,12 +156,14 @@ class AGE(nn.Module):
 			self.__load_latent_avg(ckpt)
 
 	def forward(self, x, av_codes, labels= None, resize=True, latent_mask=None, input_code=False, randomize_noise=True,
-	            inject_latent=None, return_latents=False, alpha=None):
+	            inject_latent=None, return_latents=False, alpha=None, latent = None):
 		if input_code:
 			codes = x
 		else:
-			if self.restyle:
-				x = self.get_restyle_code( x )
+			if self.restyle: # iter 0 
+				if latent is None:
+					x = self.get_restyle_code( x )
+  
 			ocodes = self.encoder(x)
 			odw = ocodes[:, :6] - av_codes[:, :6]
 			dw, A, x = self.ax(odw)
@@ -220,7 +222,11 @@ class AGE(nn.Module):
 			self.latent_avg = None
 
 	def get_code(self, x, av_codes, resize=True, latent_mask=None, return_latents=False):
-		ocodes = self.encoder(x)
+		if self.restyle:
+			x_input = self.get_restyle_code( x )
+		else:
+			x_input = x
+		ocodes = self.encoder(x_input)
 		odw = ocodes - av_codes
 		dw, A, x = self.ax(odw)
 		codes = torch.cat((dw + av_codes[:, :6], ocodes[:, 6:]), dim=1)

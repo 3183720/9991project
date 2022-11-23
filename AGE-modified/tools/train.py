@@ -164,9 +164,10 @@ def train():
 				x, y, av_codes = batch
 			x, y, av_codes = x.to(device).float(), y.to(device).float(), av_codes.to(device).float()
 
-			outputs = net.forward(x , av_codes, labels= labels, return_latents=True)
-			loss, loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
-			loss.backward()
+			loss_dict, id_logs,outputs = perform_train_iteration_on_batch( net, opts, x, y,av_codes,orthogonal, sparse, lpips)
+			# outputs = net.forward(x , av_codes, labels= labels, return_latents=True)
+			# loss, loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
+			# loss.backward()
 			optimizer.step()
 			loss_dict = reduce_loss_dict(loss_dict)
 
@@ -182,12 +183,12 @@ def train():
 			val_loss_dict = None
 			if global_step % opts.val_interval == 0 or global_step == opts.max_steps:
 				if dist.get_rank()==0:
-					val_loss_dict = validate(opts, net, orthogonal, sparse, lpips, valid_dataloader, device, global_step, logger)
+					val_loss_dict = perform_val_iteration_on_batch( net, opts,orthogonal, sparse, lpips, valid_dataloader, device, global_step, logger )  
 					if val_loss_dict and (best_val_loss is None or val_loss_dict['loss'] < best_val_loss):
 						best_val_loss = val_loss_dict['loss']
 						checkpoint_me(net, opts, checkpoint_dir, best_val_loss, global_step, loss_dict, is_best=True)
 				else:
-					val_loss_dict = validate(opts, net, orthogonal, sparse, lpips, valid_dataloader, device, global_step)
+					val_loss_dict = perform_val_iteration_on_batch( net, opts,x, y,av_codes,orthogonal, sparse, lpips, valid_dataloader, device, global_step )
 
 			if dist.get_rank()==0:
 				if global_step % opts.save_interval == 0 or global_step == opts.max_steps:
@@ -202,6 +203,84 @@ def train():
 				break
 
 			global_step += 1
+
+def perform_train_iteration_on_batch( net, opts, x, y,av_codes,orthogonal, sparse, lpips):
+  y_hat, latent = None, None
+  loss_dict, id_logs = None, None
+  y_hats = {idx: [] for idx in range(x.shape[0])}
+  for iter in range(opts.n_iters_per_batch):
+    if iter == 0:
+      outputs = net.forward(x,av_codes, latent=None, return_latents=True)
+      y_hat = outputs[ 'y_hat' ]
+      latent = outputs[ 'latent' ]
+    else:
+      y_hat_clone = y_hat.clone().detach().requires_grad_(True)
+      latent_clone = latent.clone().detach().requires_grad_(True)
+      x_input = torch.cat([x, y_hat_clone], dim=1)
+      outputs = net.forward(x_input,av_codes, latent=latent_clone, return_latents=True)
+      y_hat = outputs[ 'y_hat' ]
+      latent = outputs[ 'latent' ]
+    loss, loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
+    loss.backward()
+    # # store intermediate outputs
+    # for idx in range(x.shape[0]):
+    #   y_hats[idx].append([y_hat[idx], None])
+    #print( 'len(y_hats) ', len(y_hats ))
+  
+  # only output loss and image of last iteration
+  #loss, loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
+  return  loss_dict, id_logs, outputs 
+
+
+
+def perform_val_iteration_on_batch( net, opts,orthogonal, sparse, lpips, valid_dataloader, device, global_step, logger=None ):
+  net.eval()
+  agg_loss_dict = []
+  for batch_idx, batch in enumerate(valid_dataloader):
+    if opts.use_label:
+      x, y, av_codes,labels = batch
+      labels = labels.to(device)
+    else:
+      x, y, av_codes = batch
+    x, y, av_codes = x.to(device).float(), y.to(device).float(), av_codes.to(device).float()
+    y_hat, latent = None, None
+    cur_loss_dict, id_logs = None, None
+    y_hats = {idx: [] for idx in range(x.shape[0])}
+    for iter in range(opts.n_iters_per_batch):
+      if opts.use_label:
+        x, y, av_codes,labels = batch
+        labels = labels.to(device)
+      with torch.no_grad():
+        if iter == 0:
+          outputs = net.forward(x,av_codes, latent=None, return_latents=True)
+          y_hat = outputs[ 'y_hat' ]
+          latent = outputs[ 'latent' ]
+        else:
+          x_input = torch.cat([x, y_hat], dim=1)
+          outputs = net.forward(x_input, av_codes, latent=latent, return_latents=True) 
+          y_hat = outputs[ 'y_hat' ]
+          latent = outputs[ 'latent' ] 
+      #loss, loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
+
+      # store intermediate outputs
+      # for idx in range(x.shape[0]):
+      # 	y_hats[idx].append([y_hat[idx], None])
+    loss, loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
+    agg_loss_dict.append(cur_loss_dict)
+    # Logging related
+    if dist.get_rank()==0:
+      parse_and_log_images(opts, logger, global_step, id_logs, x, y, outputs['y_hat'], title='images/valid/faces', subscript='{:04d}'.format(batch_idx))
+  # For first step just do sanity valid on small amount of data
+    if global_step == 0 and batch_idx >= 4:
+      net.train()
+      return None  # Do not log, inaccurate in first batch
+  net.train()
+  loss_dict = train_utils.aggregate_loss_dict(agg_loss_dict)
+  loss_dict = reduce_loss_dict(loss_dict)
+  if dist.get_rank()==0:
+    log_metrics(logger, global_step,loss_dict, prefix='valid')
+    print_metrics(global_step, loss_dict, prefix='valid')
+  return loss_dict
 
 def validate(opts, net, orthogonal, sparse, lpips, valid_dataloader, device, global_step, logger=None):
 	net.eval()
