@@ -156,6 +156,7 @@ def train():
 	while global_step < opts.max_steps:
 		for batch_idx, batch in enumerate(train_dataloader):
 			optimizer.zero_grad()
+			labels = None 
 			if opts.use_label:
 				x, y, av_codes,labels = batch
 				labels = labels.to(device)
@@ -163,7 +164,7 @@ def train():
 				x, y, av_codes = batch
 			x, y, av_codes = x.to(device).float(), y.to(device).float(), av_codes.to(device).float()
 
-			outputs = net.forward(x_input , av_codes, labels= labels, return_latents=True)
+			outputs = net.forward(x , av_codes, labels= labels, return_latents=True)
 			loss, loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
 			loss.backward()
 			optimizer.step()
@@ -206,14 +207,14 @@ def validate(opts, net, orthogonal, sparse, lpips, valid_dataloader, device, glo
 	net.eval()
 	agg_loss_dict = []
 	for batch_idx, batch in enumerate(valid_dataloader):
-		if opts.use_label is not None:
+		if opts.use_label:
 				x, y, av_codes,labels = batch
 				labels = labels.to(device)
 		else:
 				x, y, av_codes = batch
 		with torch.no_grad():
 			x, y, av_codes = x.to(device).float(), y.to(device).float(), av_codes.to(device).float()
-			outputs = net.forward(x, av_codes, return_latents=True)
+			outputs = net.forward(x, av_codes, labels= labels,  return_latents=True)
 			loss, cur_loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
 		agg_loss_dict.append(cur_loss_dict)
 

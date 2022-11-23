@@ -17,10 +17,10 @@ class TestOptions:
 		self.parser.add_argument('--test_data_path', type=str, default=None, help='Path to to directory of inference inputs')
 		self.parser.add_argument('--output_path', type=str, default=None, help='Path to save outputs')
 		self.parser.add_argument('--class_embedding_path', type=str, default=None, help='Path to save class embeddings')
-		
+		self.parser.add_argument('--label_nc', default=0, type=int, help='Number of input image labels to the psp encoder')   
 		self.parser.add_argument('--test_batch_size', default=2, type=int, help='Batch size for testing and inference')
 		self.parser.add_argument('--test_workers', default=2, type=int, help='Number of test/inference dataloader workers')
-		
+		self.parser.add_argument('--restyle', action="store_true", help='use restyle psp')   
 		self.parser.add_argument('--n_images', type=int, default=128, help='Number of images to generate on per input')
 		self.parser.add_argument('--A_length', default=100, type=int, help='Length of A')
 		self.parser.add_argument('--alpha', default=1, type=float, help='Editing intensity alpha')
