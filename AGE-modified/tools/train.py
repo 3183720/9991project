@@ -237,6 +237,7 @@ def perform_val_iteration_on_batch( net, opts,orthogonal, sparse, lpips, valid_d
   net.eval()
   agg_loss_dict = []
   for batch_idx, batch in enumerate(valid_dataloader):
+    #print('batch_idx',batch_idx)
     if opts.use_label:
       x, y, av_codes,labels = batch
       labels = labels.to(device)
@@ -246,6 +247,7 @@ def perform_val_iteration_on_batch( net, opts,orthogonal, sparse, lpips, valid_d
     y_hat, latent = None, None
     cur_loss_dict, id_logs = None, None
     y_hats = {idx: [] for idx in range(x.shape[0])}
+    #print('opts.n_iters_per_batch',opts.n_iters_per_batch)
     for iter in range(opts.n_iters_per_batch):
       if opts.use_label:
         x, y, av_codes,labels = batch
@@ -255,17 +257,18 @@ def perform_val_iteration_on_batch( net, opts,orthogonal, sparse, lpips, valid_d
           outputs = net.forward(x,av_codes, latent=None, return_latents=True)
           y_hat = outputs[ 'y_hat' ]
           latent = outputs[ 'latent' ]
+          loss, cur_loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
         else:
           x_input = torch.cat([x, y_hat], dim=1)
           outputs = net.forward(x_input, av_codes, latent=latent, return_latents=True) 
           y_hat = outputs[ 'y_hat' ]
           latent = outputs[ 'latent' ] 
-      #loss, loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
-
+          loss, cur_loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
+          #print(iter, loss,cur_loss_dict)
       # store intermediate outputs
       # for idx in range(x.shape[0]):
       # 	y_hats[idx].append([y_hat[idx], None])
-    loss, loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
+    #loss, loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
     agg_loss_dict.append(cur_loss_dict)
     # Logging related
     if dist.get_rank()==0:
@@ -278,6 +281,7 @@ def perform_val_iteration_on_batch( net, opts,orthogonal, sparse, lpips, valid_d
   loss_dict = train_utils.aggregate_loss_dict(agg_loss_dict)
   loss_dict = reduce_loss_dict(loss_dict)
   if dist.get_rank()==0:
+    print('log_metrics') 
     log_metrics(logger, global_step,loss_dict, prefix='valid')
     print_metrics(global_step, loss_dict, prefix='valid')
   return loss_dict
