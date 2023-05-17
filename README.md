@@ -5,7 +5,7 @@
 3. train AGE
 
 
-### Step 1 :StyleGAN2-ADA
+### Step 1 : StyleGAN2-ADA
 #### Training StyleGAN2-ADA
 ```
 cd stylegan2-ada-pytorch; python train.py \
@@ -24,12 +24,19 @@ cd stylegan2-ada-pytorch; python train.py \
 --mirrory=False \
 --nkimg=$train_count
 ```
-#### export model weights 
+--cond=1 enables class-conditional training (requires a dataset with labels).
+further details refered to https://github.com/dvschultz/stylegan2-ada-pytorch
+
+#### export model weights( conditional styleGAN ) 
 ```
 cd stylegan2-ada-pytorch; python export_weights1.py /path/to/results/network-snapshot-XXX.pkl /path/to/styleGAN/network-snapshot-XXX.pt
 ```
+#### export model weights( unconditional styleGAN ) 
+```
+cd stylegan2-ada-pytorch; python export_weights.py /path/to/results/network-snapshot-XXX.pkl /path/to/styleGAN/network-snapshot-XXX.pt
+```
 
-### Step 2: pSp
+### Step 2: pSp 
 #### Training the pSp Encoder
 modified the dataset path in pixel2style2pixel-modified/configs/path_config.py
 ```
@@ -49,9 +56,10 @@ cd pixel2style2pixel-modified; python scripts/train.py \
 --id_lambda=0 \
 --moco_lambda=0.5 \
 --c_dim=26 \ 
---output_size=512 \
 --stylegan_weights=/path/to/styleGAN/network-snapshot-XXX.pt
 ```
+
+--c_dim enables class conditional styleGAN. It is the number of classes. 
 
 ### Step 3 :AGE 
 #### get class embedding
@@ -84,7 +92,13 @@ tools/train.py \
 --sparse_lambda=0.005 \
 --orthogonal_lambda=0.0005 \
 --A_length=100 \
---output_size=512 \
 --class_embedding_path=/content/classs/embeddings/class_embeddings.pt \
 --psp_checkpoint_path=/path/to/pretrained/pSp/checkpoints/iteration_300000.pt 
 ```
+Arguments for classs conditional StyleGAN
+--use_label enables class conditional styleGAN. 
+--c_dim is the number of classes 
+modified file path for the labels in AGE-modified/configs/path_config.py
+
+Arguments for using Restyle encoder instead of pSp
+--restyle
