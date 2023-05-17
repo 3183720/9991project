@@ -59,7 +59,7 @@ cd pixel2style2pixel-modified; python scripts/train.py \
 --stylegan_weights=/path/to/styleGAN/network-snapshot-XXX.pt
 ```
 
---c_dim enables class conditional styleGAN. It is the number of classes. 
+- --c_dim enables class conditional styleGAN. It is the number of classes. 
 
 ### Step 3 :AGE 
 #### get class embedding
@@ -95,10 +95,11 @@ tools/train.py \
 --class_embedding_path=/content/classs/embeddings/class_embeddings.pt \
 --psp_checkpoint_path=/path/to/pretrained/pSp/checkpoints/iteration_300000.pt 
 ```
-Arguments for classs conditional StyleGAN
---use_label enables class conditional styleGAN. 
---c_dim is the number of classes 
-modified file path for the labels in AGE-modified/configs/path_config.py
 
-Arguments for using Restyle encoder instead of pSp
---restyle
+To use classs conditional StyleGAN, specify
+- --use_label enables class conditional styleGAN. 
+- --c_dim is the number of classes 
+- modify the file path for the labels in AGE-modified/configs/path_config.py
+
+To use Restyle encoder instead of pSp, specify
+- --restyle
