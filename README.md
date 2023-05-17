@@ -1,8 +1,8 @@
 # 9991project
 ## STEPS
 1. train StyleGAN and export model weights 
-2. train pSp
-3. train AGE
+2. train pSp using the exported StyleGAN or use pretrained pSp model
+3. train AGE using the exported pSp or use pretrained AGE model
 
 
 ### Step 1 : StyleGAN2-ADA
@@ -22,7 +22,7 @@ cd stylegan2-ada-pytorch; python train.py \
 --gamma=50 \
 --mirror=True \
 --mirrory=False \
---nkimg=$train_count
+--nkimg=0
 ```
 --cond=1 enables class-conditional training (requires a dataset with labels).
 further details refered to https://github.com/dvschultz/stylegan2-ada-pytorch
@@ -80,7 +80,7 @@ cd AGE-modified;python -m torch.distributed.launch \
 tools/train.py \
 --dataset_type=phonics_encode \
 --encoder_type=ResNetGradualStyleEncoder \
---exp_dir=/content/drive/MyDrive/AGE/snakch/run1_1 \
+--exp_dir=/path/to/experiment \
 --workers=8 \
 --batch_size=8 \
 --valid_batch_size=8 \
@@ -92,7 +92,7 @@ tools/train.py \
 --sparse_lambda=0.005 \
 --orthogonal_lambda=0.0005 \
 --A_length=100 \
---class_embedding_path=/content/classs/embeddings/class_embeddings.pt \
+--class_embedding_path=/path/to/classs/embeddings/class_embeddings.pt \
 --psp_checkpoint_path=/path/to/pretrained/pSp/checkpoints/iteration_300000.pt 
 ```
 
