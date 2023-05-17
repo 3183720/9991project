@@ -32,10 +32,12 @@ from criteria import orthogonal_loss, sparse_loss
 from criteria.lpips.lpips import LPIPS
 from optimizer.ranger import Ranger
 from utils import common, train_utils
+from models.restyle_psp import pSp as restyle_psp
 import torch.multiprocessing as mp
 
 def train():
 	opts = TrainOptions().parse()
+
 	dist.init_process_group(backend="nccl", init_method="env://")
 	local_rank = dist.get_rank()
 	torch.cuda.set_device(local_rank)
@@ -65,6 +67,7 @@ def train():
 
 	# Initialize network
 	net = AGE(opts).to(device)
+
 	params = list(net.ax.parameters())
 	if opts.optim_name == 'adam':
 		optimizer = torch.optim.Adam(params, lr=opts.learning_rate)
@@ -96,18 +99,28 @@ def train():
 				transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])])
 		}
 
-
-	
+	train_labels_path = None
+	test_labels_path = None
+	if opts.use_label:
+		train_labels_path = dataset_args["train_labels"]
+		if not opts.unseen_label_in_test:
+			test_labels_path = dataset_args["test_labels"]
+		else:
+			test_labels_path = None
+                
 	train_dataset = ImagesDataset(source_root=dataset_args['train_source_root'],
 									target_root=dataset_args['train_target_root'],
                                     opts=opts,
 									source_transform=transforms_dict['transform_source'],
-									target_transform=transforms_dict['transform_gt_train'])
+									target_transform=transforms_dict['transform_gt_train'],
+                  labels_path=train_labels_path
+                  )
 	valid_dataset = ImagesDataset(source_root=dataset_args['valid_source_root'],
 									target_root=dataset_args['valid_target_root'],
                                     opts=opts,
 									source_transform=transforms_dict['transform_source'],
-									target_transform=transforms_dict['transform_valid'])
+									target_transform=transforms_dict['transform_valid'],
+                  labels_path=test_labels_path )
 
 	if local_rank==0:
 		print(f"Number of training samples: {len(train_dataset)}")
@@ -143,11 +156,18 @@ def train():
 	while global_step < opts.max_steps:
 		for batch_idx, batch in enumerate(train_dataloader):
 			optimizer.zero_grad()
-			x, y, av_codes = batch
+			labels = None 
+			if opts.use_label:
+				x, y, av_codes,labels = batch
+				labels = labels.to(device)
+			else:
+				x, y, av_codes = batch
 			x, y, av_codes = x.to(device).float(), y.to(device).float(), av_codes.to(device).float()
-			outputs = net.forward(x, av_codes, return_latents=True)
-			loss, loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
-			loss.backward()
+
+			loss_dict, id_logs,outputs = perform_train_iteration_on_batch( net, opts, x, y,av_codes,orthogonal, sparse, lpips)
+			# outputs = net.forward(x , av_codes, labels= labels, return_latents=True)
+			# loss, loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
+			# loss.backward()
 			optimizer.step()
 			loss_dict = reduce_loss_dict(loss_dict)
 
@@ -163,12 +183,12 @@ def train():
 			val_loss_dict = None
 			if global_step % opts.val_interval == 0 or global_step == opts.max_steps:
 				if dist.get_rank()==0:
-					val_loss_dict = validate(opts, net, orthogonal, sparse, lpips, valid_dataloader, device, global_step, logger)
+					val_loss_dict = perform_val_iteration_on_batch( net, opts,orthogonal, sparse, lpips, valid_dataloader, device, global_step, logger )  
 					if val_loss_dict and (best_val_loss is None or val_loss_dict['loss'] < best_val_loss):
 						best_val_loss = val_loss_dict['loss']
 						checkpoint_me(net, opts, checkpoint_dir, best_val_loss, global_step, loss_dict, is_best=True)
 				else:
-					val_loss_dict = validate(opts, net, orthogonal, sparse, lpips, valid_dataloader, device, global_step)
+					val_loss_dict = perform_val_iteration_on_batch( net, opts,x, y,av_codes,orthogonal, sparse, lpips, valid_dataloader, device, global_step )
 
 			if dist.get_rank()==0:
 				if global_step % opts.save_interval == 0 or global_step == opts.max_steps:
@@ -184,14 +204,100 @@ def train():
 
 			global_step += 1
 
+def perform_train_iteration_on_batch( net, opts, x, y,av_codes,orthogonal, sparse, lpips):
+  y_hat, latent = None, None
+  loss_dict, id_logs = None, None
+  y_hats = {idx: [] for idx in range(x.shape[0])}
+  for iter in range(opts.n_iters_per_batch):
+    if iter == 0:
+      outputs = net.forward(x,av_codes, latent=None, return_latents=True)
+      y_hat = outputs[ 'y_hat' ]
+      latent = outputs[ 'latent' ]
+    else:
+      y_hat_clone = y_hat.clone().detach().requires_grad_(True)
+      latent_clone = latent.clone().detach().requires_grad_(True)
+      x_input = torch.cat([x, y_hat_clone], dim=1)
+      outputs = net.forward(x_input,av_codes, latent=latent_clone, return_latents=True)
+      y_hat = outputs[ 'y_hat' ]
+      latent = outputs[ 'latent' ]
+    loss, loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
+    loss.backward()
+    # # store intermediate outputs
+    # for idx in range(x.shape[0]):
+    #   y_hats[idx].append([y_hat[idx], None])
+    #print( 'len(y_hats) ', len(y_hats ))
+  
+  # only output loss and image of last iteration
+  #loss, loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
+  return  loss_dict, id_logs, outputs 
+
+
+
+def perform_val_iteration_on_batch( net, opts,orthogonal, sparse, lpips, valid_dataloader, device, global_step, logger=None ):
+  net.eval()
+  agg_loss_dict = []
+  for batch_idx, batch in enumerate(valid_dataloader):
+    #print('batch_idx',batch_idx)
+    if opts.use_label:
+      x, y, av_codes,labels = batch
+      labels = labels.to(device)
+    else:
+      x, y, av_codes = batch
+    x, y, av_codes = x.to(device).float(), y.to(device).float(), av_codes.to(device).float()
+    y_hat, latent = None, None
+    cur_loss_dict, id_logs = None, None
+    y_hats = {idx: [] for idx in range(x.shape[0])}
+    #print('opts.n_iters_per_batch',opts.n_iters_per_batch)
+    for iter in range(opts.n_iters_per_batch):
+      if opts.use_label:
+        x, y, av_codes,labels = batch
+        labels = labels.to(device)
+      with torch.no_grad():
+        if iter == 0:
+          outputs = net.forward(x,av_codes, latent=None, return_latents=True)
+          y_hat = outputs[ 'y_hat' ]
+          latent = outputs[ 'latent' ]
+          loss, cur_loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
+        else:
+          x_input = torch.cat([x, y_hat], dim=1)
+          outputs = net.forward(x_input, av_codes, latent=latent, return_latents=True) 
+          y_hat = outputs[ 'y_hat' ]
+          latent = outputs[ 'latent' ] 
+          loss, cur_loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
+          #print(iter, loss,cur_loss_dict)
+      # store intermediate outputs
+      # for idx in range(x.shape[0]):
+      # 	y_hats[idx].append([y_hat[idx], None])
+    #loss, loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
+    agg_loss_dict.append(cur_loss_dict)
+    # Logging related
+    if dist.get_rank()==0:
+      parse_and_log_images(opts, logger, global_step, id_logs, x, y, outputs['y_hat'], title='images/valid/faces', subscript='{:04d}'.format(batch_idx))
+  # For first step just do sanity valid on small amount of data
+    if global_step == 0 and batch_idx >= 4:
+      net.train()
+      return None  # Do not log, inaccurate in first batch
+  net.train()
+  loss_dict = train_utils.aggregate_loss_dict(agg_loss_dict)
+  loss_dict = reduce_loss_dict(loss_dict)
+  if dist.get_rank()==0:
+    print('log_metrics') 
+    log_metrics(logger, global_step,loss_dict, prefix='valid')
+    print_metrics(global_step, loss_dict, prefix='valid')
+  return loss_dict
+
 def validate(opts, net, orthogonal, sparse, lpips, valid_dataloader, device, global_step, logger=None):
 	net.eval()
 	agg_loss_dict = []
 	for batch_idx, batch in enumerate(valid_dataloader):
-		x, y, av_codes = batch
+		if opts.use_label:
+				x, y, av_codes,labels = batch
+				labels = labels.to(device)
+		else:
+				x, y, av_codes = batch
 		with torch.no_grad():
 			x, y, av_codes = x.to(device).float(), y.to(device).float(), av_codes.to(device).float()
-			outputs = net.forward(x, av_codes, return_latents=True)
+			outputs = net.forward(x, av_codes, labels= labels,  return_latents=True)
 			loss, cur_loss_dict, id_logs = calc_loss(opts, outputs, y, orthogonal, sparse, lpips)
 		agg_loss_dict.append(cur_loss_dict)
 

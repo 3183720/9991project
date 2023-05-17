@@ -27,6 +27,8 @@ class TestOptions:
 		# arguments for super-resolution
 		self.parser.add_argument('--resize_factors', type=str, default=None,
 		                         help='Downsampling factor for super-res (should be a single value for inference).')
+		self.parser.add_argument('--use_label', action="store_true", help='label_path')
+        self.parser.add_argument('--unseen_label_in_test', action="store_true", help='label in test set unseen')
 
 	def parse(self):
 		opts = self.parser.parse_args()

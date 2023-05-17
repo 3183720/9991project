@@ -27,7 +27,8 @@ class Coach:
 
         self.device = "cuda:0"  # TODO: Allow multiple GPU? currently using CUDA_VISIBLE_DEVICES
         self.opts.device = self.device
-
+        self.use_label = opts.use_label
+        self.unseen_label_in_test = opts.unseen_label_in_test
         # Initialize network
         self.net = pSp(self.opts).to(self.device)
 
@@ -83,7 +84,7 @@ class Coach:
                 self.optimizer.zero_grad()
                 target_latent = None
                 labels = None
-                if self.labels_path is not None:
+                if self.use_label is not None:
                     x, y, labels = batch
                     labels = labels.to(self.device)
                 elif self.opts.latent_lambda > 0:
@@ -147,8 +148,8 @@ class Coach:
         agg_loss_dict = []
         for batch_idx, batch in enumerate(self.test_dataloader):
             target_latent = None
-            labels = None
-            if self.labels_path is not None:
+            #labels = None
+            if self.use_label is not None:
                 x, y, labels = batch
                 labels = labels.to(self.device)
             elif self.opts.latent_lambda > 0:
@@ -237,10 +238,13 @@ class Coach:
 
         train_latents_root = None
         test_latents_root = None
-        self.labels_path = None
 
-        if "labels" in dataset_args.keys():
-            self.labels_path = dataset_args["labels"]
+        if self.use_label:
+            self.train_labels_path = dataset_args["train_labels"]
+            if not self.unseen_label_in_test:
+                self.test_labels_path = dataset_args["test_labels"]
+            else:
+                self.test_labels_path = None
 
         if "train_latents_root" in dataset_args.keys():
             train_latents_root = dataset_args["train_latents_root"]
@@ -254,7 +258,7 @@ class Coach:
             source_transform=transforms_dict["transform_source"],
             target_transform=transforms_dict["transform_gt_train"],
             latents_root=train_latents_root,
-            labels_path=self.labels_path,
+            labels_path=self.train_labels_path,
             opts=self.opts,
         )
 
@@ -264,8 +268,9 @@ class Coach:
             source_transform=transforms_dict["transform_source"],
             target_transform=transforms_dict["transform_test"],
             latents_root=test_latents_root,
-            labels_path=self.labels_path,
+            labels_path=self.test_labels_path,
             opts=self.opts,
+            unseen_label_in_test=self.unseen_label_in_test
         )
         train_dataset = train_dataset_celeba
         test_dataset = test_dataset_celeba
@@ -322,7 +327,7 @@ class Coach:
             loss_dict['loss_moco'] = float(loss_moco)
             loss_dict['id_improve'] = float(sim_improvement)
             loss += loss_moco * self.opts.moco_lambda
-	loss_dict["loss"] = float(loss)
+        loss_dict["loss"] = float(loss)
         return loss, loss_dict, id_logs
 
     def log_metrics(self, metrics_dict, prefix):

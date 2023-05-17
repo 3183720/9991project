@@ -16,9 +16,10 @@ dataset_paths = {
     "paired_gens_val_latents": "/content/drive/MyDrive/Colab_Notebooks/baldurs_gan/stylegan2_outputs/paired_images/latents_val",
     "ffhq_512": "/content/ffhq_512/",
     "ffhq_512_val": "/content/ffhq_512_val",
-    "ffhq_512_cond": "/content/phonix_img_dataset/",
-    "ffhq_512_cond_val": "/content/phonix_img_dataset",
-    "ffhq_512_labels": "/content/phonix_img_dataset/dataset.json",
+    "ffhq_512_cond": "/content/train_data/",
+    "ffhq_512_cond_val": "/content/valid_data",
+    "ffhq_512_train_labels": "/content/train_label/dataset.json",
+    "ffhq_512_test_labels": "/content/valid_label/dataset.json"
 }
 
 model_paths = {

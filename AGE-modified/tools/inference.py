@@ -85,12 +85,9 @@ if __name__=='__main__':
     transforms_dict = dataset_args['transforms'](opts).get_transforms()
     transform=transforms_dict['transform_inference']
 
-
     # get n distribution (only needs to be executed once)
     # class_embeddings=torch.load(os.path.join(test_opts.class_embedding_path, 'class_embeddings.pt'))
     # get_n_distribution(net, transform, class_embeddings, test_opts)
-
-
 
     # generate data
     dist=np.load(os.path.join(opts.n_distribution_path, 'n_distribution.npy'), allow_pickle=True).item()
@@ -105,6 +102,7 @@ if __name__=='__main__':
             from_im = transform(from_im)
             outputs = net.get_test_code(from_im.unsqueeze(0).to("cuda").float())
             codes=sampler(outputs, dist, test_opts)
+            labels = torch.tensor([0]).to("cuda")
             with torch.no_grad():
                 res0 = net.decode(codes, randomize_noise=False, resize=opts.resize_outputs)
             res0 = tensor2im(res0[0])
